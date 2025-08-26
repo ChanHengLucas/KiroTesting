@@ -1121,7 +1121,7 @@ def update_main_content(active_tab, func_str, x_min, x_max, y_min, y_max,
             return create_cross_sections_content(x, y, func_str, cross_x or 0, cross_y or 0, colorscale)
         
         elif active_tab == 'analysis':
-            return create_analysis_content(func_str, x_range, y_range, critical_points)
+            return create_analysis_content(func_str, x_range, y_range, critical_points, cross_x, cross_y)
         
     except Exception as e:
         return html.Div([
@@ -1138,7 +1138,7 @@ def update_main_content(active_tab, func_str, x_min, x_max, y_min, y_max,
             ])
         ], className='error-panel')
 
-def create_analysis_content(func_str, x_range, y_range, critical_points):
+def create_analysis_content(func_str, x_range, y_range, critical_points, cross_x=0, cross_y=0):
     """Create comprehensive analysis content with all information displayed automatically"""
     content = []
     
@@ -1276,11 +1276,23 @@ def create_analysis_content(func_str, x_range, y_range, critical_points):
     
     # Function statistics
     try:
-        # Sample the function for statistics
-        x_sample = np.linspace(x_range[0], x_range[1], 50)
-        y_sample = np.linspace(y_range[0], y_range[1], 50)
+        # Expand the sampling range to include cross-section coordinates
+        extended_x_min = min(x_range[0], cross_x - 1) if cross_x is not None else x_range[0]
+        extended_x_max = max(x_range[1], cross_x + 1) if cross_x is not None else x_range[1]
+        extended_y_min = min(y_range[0], cross_y - 1) if cross_y is not None else y_range[0]
+        extended_y_max = max(y_range[1], cross_y + 1) if cross_y is not None else y_range[1]
+        
+        # Sample the function for statistics over extended range
+        x_sample = np.linspace(extended_x_min, extended_x_max, 50)
+        y_sample = np.linspace(extended_y_min, extended_y_max, 50)
         X_sample, Y_sample = np.meshgrid(x_sample, y_sample)
         Z_sample = safe_eval_function(func_str, X_sample, Y_sample)
+        
+        # Also include the specific cross-section point
+        if cross_x is not None and cross_y is not None:
+            cross_value = safe_eval_function(func_str, cross_x, cross_y)
+            if np.isfinite(cross_value):
+                Z_sample = np.append(Z_sample.flatten(), cross_value)
         
         # Calculate statistics
         if np.any(np.isfinite(Z_sample)):
@@ -1292,12 +1304,20 @@ def create_analysis_content(func_str, x_range, y_range, critical_points):
             mean_val = np.mean(valid_values)
             std_val = np.std(valid_values)
             
+            # Show both original and extended domain info
+            domain_info = f"Original domain: x ∈ [{x_range[0]}, {x_range[1]}], y ∈ [{y_range[0]}, {y_range[1]}]"
+            if cross_x is not None and cross_y is not None and (cross_x < x_range[0] or cross_x > x_range[1] or cross_y < y_range[0] or cross_y > y_range[1]):
+                domain_info += f"<br>Extended for cross-sections: x ∈ [{extended_x_min:.1f}, {extended_x_max:.1f}], y ∈ [{extended_y_min:.1f}, {extended_y_max:.1f}]"
+                if np.isfinite(cross_value):
+                    domain_info += f"<br>Cross-section value: f({cross_x}, {cross_y}) = {cross_value:.6f}"
+            
             content.append(html.Div([
                 html.H4("📊 Function Statistics"),
+                dcc.Markdown(domain_info, dangerously_allow_html=True, style={'fontSize': '14px', 'marginBottom': '10px'}),
                 html.P(f"Range: f(x,y) ∈ [{min_val:.6f}, {max_val:.6f}]"),
                 html.P(f"Mean value: {mean_val:.6f}"),
                 html.P(f"Standard deviation: {std_val:.6f}"),
-                html.P(f"Valid samples: {np.sum(valid_mask)}/{Z_sample.size} ({100*np.sum(valid_mask)/Z_sample.size:.1f}%)")
+                html.P(f"Valid samples: {np.sum(valid_mask)}/{len(valid_values)} ({100*np.sum(valid_mask)/len(valid_values):.1f}%)")
             ], className='info-panel'))
     except Exception as e:
         content.append(html.Div([
