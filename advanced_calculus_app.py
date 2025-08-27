@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Advanced Multivariable Calculus Educational Tool
-Comprehensive visualization and analysis platform
+Comprehensive visualization and analysis platform with enhanced performance and accessibility
 """
 
 import dash
@@ -14,38 +14,156 @@ from scipy import integrate
 import pandas as pd
 import json
 import re
+import time
 
-# Initialize Dash app with custom CSS
+# Import our enhanced modules
+from educational_content import EducationalContentManager, MathNotationFormatter
+from performance_utils import (
+    function_evaluator, critical_point_optimizer, mesh_generator, 
+    perf_monitor, get_performance_summary
+)
+from accessibility_utils import (
+    accessibility_manager, DifficultyLevel, EducationalGuidance
+)
+from mcp_content_fetcher import MCPEducationalFetcher
+
+# Initialize enhanced content manager and performance monitoring
+content_manager = EducationalContentManager()
+math_formatter = MathNotationFormatter()
+mcp_fetcher = MCPEducationalFetcher()
+
+# Initialize Dash app with enhanced accessibility
 app = dash.Dash(__name__, suppress_callback_exceptions=True)
 app.title = "Advanced Multivariable Calculus Explorer"
 
-# Enhanced function library with educational examples
-FUNCTION_LIBRARY = {
-    "Basic Functions": {
-        "Paraboloid": "x**2 + y**2",
-        "Saddle Point": "x**2 - y**2",
+# Get UI configuration from accessibility manager
+ui_config = accessibility_manager.get_enhanced_ui_config()
+
+# Enhanced function library from educational content manager with MCP integration
+def get_function_library():
+    """Generate comprehensive function library with all categories and MCP-fetched examples"""
+    library = {}
+    
+    # Basic Functions - Core mathematical surfaces
+    library["Basic Functions"] = {
+        "Simple Paraboloid": "x**2 + y**2",
+        "Saddle Point": "x**2 - y**2", 
+        "Elliptic Paraboloid": "x**2/4 + y**2/9",
+        "Hyperbolic Paraboloid": "x**2/4 - y**2/9",
         "Plane": "2*x + 3*y + 1",
-        "Cylinder": "x**2",
-    },
-    "Trigonometric": {
-        "Wave Pattern": "np.sin(x) * np.cos(y)",
-        "Ripple": "np.sin(np.sqrt(x**2 + y**2))",
-        "Standing Wave": "np.sin(x) * np.sin(y)",
-        "Twisted Surface": "np.sin(x*y)",
-    },
-    "Exponential & Logarithmic": {
-        "Gaussian": "np.exp(-(x**2 + y**2))",
-        "Exponential Decay": "np.exp(-np.abs(x) - np.abs(y))",
-        "Log Surface": "np.log(x**2 + y**2 + 1)",
-        "Mexican Hat": "(1 - (x**2 + y**2)) * np.exp(-(x**2 + y**2)/2)",
-    },
-    "Advanced": {
-        "Monkey Saddle": "x**3 - 3*x*y**2",
-        "Himmelblau": "(x**2 + y - 11)**2 + (x + y**2 - 7)**2",
-        "Rosenbrock": "100*(y - x**2)**2 + (1 - x)**2",
-        "Ackley": "-20*np.exp(-0.2*np.sqrt(0.5*(x**2 + y**2))) - np.exp(0.5*(np.cos(2*np.pi*x) + np.cos(2*np.pi*y))) + np.e + 20",
+        "Linear Bowl": "x + y"
     }
-}
+    
+    # Advanced Functions - Complex mathematical surfaces
+    library["Advanced Functions"] = {
+        "Monkey Saddle": "x**3 - 3*x*y**2",
+        "Himmelblau Function": "(x**2 + y - 11)**2 + (x + y**2 - 7)**2",
+        "Rosenbrock Function": "100*(y - x**2)**2 + (1 - x)**2",
+        "Ackley Function": "-20*np.exp(-0.2*np.sqrt(0.5*(x**2 + y**2))) - np.exp(0.5*(np.cos(2*np.pi*x) + np.cos(2*np.pi*y))) + np.e + 20",
+        "Beale Function": "(1.5 - x + x*y)**2 + (2.25 - x + x*y**2)**2 + (2.625 - x + x*y**3)**2",
+        "Goldstein-Price": "(1 + (x + y + 1)**2 * (19 - 14*x + 3*x**2 - 14*y + 6*x*y + 3*y**2)) * (30 + (2*x - 3*y)**2 * (18 - 32*x + 12*x**2 + 48*y - 36*x*y + 27*y**2))"
+    }
+    
+    # Trigonometric Functions
+    library["Trigonometric Functions"] = {
+        "Sine Wave": "np.sin(x) * np.cos(y)",
+        "Ripple Effect": "np.sin(np.sqrt(x**2 + y**2))",
+        "Wave Interference": "np.sin(x) + np.cos(y)",
+        "Modulated Sine": "np.sin(x*y)",
+        "Circular Waves": "np.cos(x**2 + y**2)",
+        "Standing Wave": "np.sin(2*x) * np.cos(3*y)"
+    }
+    
+    # Exponential Functions
+    library["Exponential Functions"] = {
+        "Gaussian Bell": "np.exp(-(x**2 + y**2))",
+        "Stretched Gaussian": "np.exp(-(x**2/4 + y**2))",
+        "Exponential Decay": "np.exp(-np.abs(x) - np.abs(y))",
+        "Mexican Hat": "(1 - (x**2 + y**2)) * np.exp(-(x**2 + y**2)/2)",
+        "Exponential Ridge": "np.exp(-x**2) * np.exp(-y**2/4)",
+        "Volcano": "np.exp(-(x**2 + y**2)) * (x**2 + y**2)"
+    }
+    
+    # Load all MCP content by default for comprehensive library
+    try:
+        # MCP Multivariable examples
+        mcp_examples = mcp_fetcher.fetch_educational_examples("multivariable")
+        if mcp_examples:
+            library["MCP: Multivariable"] = {
+                ex.title: ex.expression for ex in mcp_examples
+            }
+        
+        # MCP Real-world applications
+        real_world_examples = mcp_fetcher.get_real_world_applications()
+        if real_world_examples:
+            library["MCP: Applications"] = {
+                ex.title: ex.expression for ex in real_world_examples
+            }
+            
+        # MCP Derivatives examples (multivariable only)
+        derivative_examples = mcp_fetcher.fetch_educational_examples("derivatives")
+        if derivative_examples:
+            multivariable_derivs = [ex for ex in derivative_examples if 'y' in ex.expression]
+            if multivariable_derivs:
+                library["MCP: Derivatives"] = {
+                    ex.title: ex.expression for ex in multivariable_derivs
+                }
+        
+        # MCP Integrals examples (multivariable only)
+        integral_examples = mcp_fetcher.fetch_educational_examples("integrals")
+        if integral_examples:
+            multivariable_integrals = [ex for ex in integral_examples if 'y' in ex.expression]
+            if multivariable_integrals:
+                library["MCP: Integrals"] = {
+                    ex.title: ex.expression for ex in multivariable_integrals
+                }
+                
+    except Exception as e:
+        print(f"MCP content loading failed: {e}")
+    
+    # Get examples from educational content manager (avoid duplicates)
+    try:
+        for category_key, category_name in content_manager.categories.items():
+            if category_key == "multivariable":
+                examples = content_manager.get_examples_by_category(category_key)
+                if examples:
+                    # Check for duplicates across all existing categories
+                    existing_expressions = set()
+                    for cat_funcs in library.values():
+                        existing_expressions.update(cat_funcs.values())
+                    
+                    # Only add non-duplicate examples
+                    unique_examples = {}
+                    for ex in examples:
+                        if ex.expression not in existing_expressions:
+                            unique_examples[ex.title] = ex.expression
+                            existing_expressions.add(ex.expression)
+                    
+                    if unique_examples:
+                        library[f"Educational: {category_name}"] = unique_examples
+    except Exception as e:
+        print(f"Educational content loading failed: {e}")
+    
+    # Remove any duplicate functions across all categories
+    all_expressions = {}  # expression -> (category, title)
+    cleaned_library = {}
+    
+    for category, functions in library.items():
+        cleaned_functions = {}
+        for title, expression in functions.items():
+            if expression not in all_expressions:
+                all_expressions[expression] = (category, title)
+                cleaned_functions[title] = expression
+            # Skip duplicates silently
+        
+        if cleaned_functions:  # Only add categories that have functions
+            cleaned_library[category] = cleaned_functions
+    
+    return cleaned_library
+    
+    return library
+
+FUNCTION_LIBRARY = get_function_library()
 
 # Custom CSS styling
 app.index_string = '''
@@ -140,6 +258,8 @@ app.layout = html.Div([
         html.Div([
             # Left Control Panel
             html.Div([
+
+                
                 # Function Selection
                 html.Div([
                     html.H4("📊 Function Selection", className='section-header'),
@@ -148,7 +268,7 @@ app.layout = html.Div([
                         dcc.Dropdown(
                             id='function-category',
                             options=[{'label': k, 'value': k} for k in FUNCTION_LIBRARY.keys()],
-                            value='Basic Functions',
+                            value='Classic Examples',
                             style={'marginBottom': 10}
                         ),
                         dcc.Dropdown(
@@ -1367,6 +1487,8 @@ def update_cross_section_values(n_clicks, cross_x_temp, cross_y_temp):
     return 0, 0
 
 # Analysis content is now generated automatically in create_analysis_content function
+
+
 
 if __name__ == '__main__':
     print("🚀 Starting Advanced Multivariable Calculus Explorer...")
